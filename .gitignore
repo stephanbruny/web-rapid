@@ -1,0 +1,5 @@
+# Project exclude paths
+/cmake-build-debug/CMakeFiles/
+/cmake-build-local-debug/CMakeFiles/
+cmake-*
+.idea
