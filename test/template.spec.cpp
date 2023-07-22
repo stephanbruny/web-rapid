@@ -11,24 +11,6 @@ using namespace nlohmann;
 
 namespace {
 
-    mustache::data fromJson(json & json) {
-        mustache::data result;
-        if (json.is_number() ||json.is_string()) {
-            return json.template get<string>();
-        }
-        if (json.is_array()) {
-            mustache::data array{mustache::data::type::list};
-            for (auto & item : json) {
-                array.push_back(fromJson(item));
-            }
-            return array;
-        }
-        for (auto& [key, value] : json.items()) {
-            result.set(key, fromJson(value));
-        }
-        return result;
-    }
-
     TEST(Templates, RenderTest) {
         const char TEST_TEMPLATE[] = R"__(<html><h1>{{title}}</h1></p>{{content}}</p></html>)__";
 
@@ -68,12 +50,13 @@ namespace {
         )json";
 
         auto json = json::parse(TEST_JSON);
-        auto data = fromJson(json);
+        auto data = Template::dataFromJson(json);
 
         Template::TemplateRenderer renderer;
         renderer.addTemplate("test", TEST_TEMPLATE);
         auto result = renderer.render("test", data);
-        cout << result << endl;
+
+        EXPECT_STREQ(result.c_str(), "<html><h1>FOO BAR JSON</h1></p>Han shot first</p><ul><li>Foo</li><li>Bar</li><li>ASDF</li></ul></html>");
     }
 }
 

@@ -19,3 +19,21 @@ std::string Template::TemplateRenderer::render(const string &templateName, musta
     }
     return templateIterator->second.render(data);
 }
+
+mustache::data Template::dataFromJson(json &json) {
+    mustache::data result;
+    if (json.is_number() || json.is_string()) {
+        return json.template get<string>();
+    }
+    if (json.is_array()) {
+        mustache::data array{mustache::data::type::list};
+        for (auto & item : json) {
+            array.push_back(dataFromJson(item));
+        }
+        return array;
+    }
+    for (auto& [key, value] : json.items()) {
+        result.set(key, dataFromJson(value));
+    }
+    return result;
+}

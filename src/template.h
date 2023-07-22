@@ -5,9 +5,10 @@
 #include <filesystem>
 #include "mustache.hpp"
 #include "file.h"
+#include "json.hpp"
 
 using namespace std;
-
+using namespace nlohmann;
 
 namespace Template {
     class TemplateRenderer {
@@ -21,5 +22,8 @@ namespace Template {
         void addTemplateFile(const std::string & filename, const std::string & name = "");
 
         std::string render(const std::string & templateName, mustache::data & data);
+
     };
+
+    mustache::data dataFromJson(json & json);
 }
