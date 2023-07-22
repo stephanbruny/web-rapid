@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>{{title}}</title>
+</head>
+<body>
+
+<h1>{{headline}}</h1>
+<div>{{{content}}}</div>
+
+<table>
+  <tr>
+    <th>Name</th>
+    <th>Age</th>
+    <th>Occupation</th>
+  </tr>
+  {{#people}}
+  <tr>
+    <td>{{name}}</td>
+    <td>{{age}}</td>
+    <td>{{occupation}}</td>
+  </tr>
+  {{/people}}
+</table>
+
+</body>
+</html>

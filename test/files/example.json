@@ -1,0 +1,22 @@
+{
+    "title": "Testpage",
+    "headline": "This is a test",
+    "content": "<p>Lorem Ipsum</p><p>Foo Bar 123</p>",
+    "people": [
+        {
+            "name": "Jason",
+            "age": 42,
+            "occupation": "Tester"
+        },
+        {
+            "name": "Han Solo",
+            "age": 33,
+            "occupation": "shooting first"
+        },
+        {
+            "name": "Bunny Tzukino",
+            "age": 14,
+            "occupation": "Sailor Moon"
+        }
+    ]
+}

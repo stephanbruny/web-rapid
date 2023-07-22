@@ -58,5 +58,14 @@ namespace {
 
         EXPECT_STREQ(result.c_str(), "<html><h1>FOO BAR JSON</h1></p>Han shot first</p><ul><li>Foo</li><li>Bar</li><li>ASDF</li></ul></html>");
     }
+
+    TEST(Templates, From_Files) {
+        auto templateJson = File::read("../files/example.json");
+        Template::TemplateRenderer renderer;
+        renderer.addTemplateFile("../files/example.mustache");
+        auto data = Template::dataFromJson(templateJson);
+        auto result = renderer.render("example", data);
+        // TODO: Assert strings are equal ignoring tab/whitespace mistmatch between tags...
+    }
 }
 

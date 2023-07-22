@@ -26,4 +26,5 @@ namespace Template {
     };
 
     mustache::data dataFromJson(json & json);
+    mustache::data dataFromJson(const std::string & json);
 }

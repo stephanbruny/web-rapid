@@ -25,5 +25,8 @@ add_executable(web_rapid_unittests
         ../src/file.cpp
         ../src/template.cpp
 )
+
+file(COPY files DESTINATION ${CMAKE_BINARY_DIR})
+
 target_link_libraries(web_rapid_unittests GTest::gtest_main gmock)
 gtest_add_tests(TARGET web_rapid_unittests)
