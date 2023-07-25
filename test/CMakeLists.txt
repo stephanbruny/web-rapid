@@ -21,9 +21,11 @@ include(GoogleTest)
 add_executable(web_rapid_unittests
         base.spec.cpp
         template.spec.cpp
+        server.spec.cpp
 
         ../src/file.cpp
         ../src/template.cpp
+        ../src/web.cpp
 )
 
 file(COPY files DESTINATION ${CMAKE_BINARY_DIR})

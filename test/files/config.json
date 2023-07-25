@@ -1,0 +1,14 @@
+{
+    "port": 1337,
+    "files":  "files",
+    "static": "files/static",
+    "templates": "files/templates",
+    "routes": {
+        "get": {
+            "/": {
+                "template": "home.mustache",
+                "data": "data/home.json"
+            }
+        }
+    }
+}

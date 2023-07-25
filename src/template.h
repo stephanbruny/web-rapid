@@ -19,7 +19,7 @@ namespace Template {
 
         void addTemplate(const std::string & name, const std::string & content);
 
-        void addTemplateFile(const std::string & filename, const std::string & name = "");
+        string addTemplateFile(const std::string & filename, const std::string & name = "");
 
         std::string render(const std::string & templateName, mustache::data & data);
 
