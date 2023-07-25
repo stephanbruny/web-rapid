@@ -71,10 +71,13 @@ namespace Web {
         httplib::Server server;
         ServerConfiguration config;
         map<RouteReference, shared_ptr<ContentResolver>> resolvers;
+    protected:
+        void setupRoutes();
+
+        void setupPrerouting();
     public:
         explicit Webserver(const ServerConfiguration & conf, Template::TemplateRenderer & renderer);
 
-        void setupRoutes();
 
         void listen();
 

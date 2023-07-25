@@ -26,12 +26,16 @@ namespace {
         thread serverThread(worker);
 
         while (!server.is_running())
-            std::this_thread::sleep_for(std::chrono::milliseconds{10});
+            std::this_thread::sleep_for(std::chrono::milliseconds{1});
 
         httplib::Client client("localhost", 8080);
         auto res = client.Get("/");
 
-        cout << "RESULT: " << res->body << endl;
+        ASSERT_EQ(res->status, 200);
+
+        auto fail = client.Get("/foobar");
+
+        ASSERT_EQ(fail->status, 404);
 
         server.close();
         serverThread.join();
