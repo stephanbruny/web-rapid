@@ -87,5 +87,46 @@ namespace {
         ASSERT_EQ(conf.routes.count({ Web::RouteMethod::Get, "/foo" }), 1);
         ASSERT_EQ(conf.routes.count({ Web::RouteMethod::Post, "/" }), 1);
     }
+
+    TEST(Server, StaticFiles) {
+        Template::TemplateRenderer renderer;
+
+        map<RouteReference, Route> routes = {
+                { { RouteMethod::Get, "/" }, { "/", "../files/example.mustache", "../files/example.json" } }
+        };
+
+        ServerConfiguration conf {
+                8080,
+                "0.0.0.0",
+                "../files",
+                "../files/static",
+                "../files/templates",
+                routes
+        };
+
+        Webserver server(conf, renderer);
+
+        auto worker = [&](){
+            server.listen();
+        };
+
+        thread serverThread(worker);
+
+        while (!server.is_running())
+            std::this_thread::sleep_for(std::chrono::milliseconds{1});
+
+        httplib::Client client("localhost", 8080);
+        auto res = client.Get("/test.png");
+        client.Get("/static/test.png");
+
+        auto fileContents = File::read("../files/static/test.png");
+
+        ASSERT_EQ(res->status, 200);
+
+        ASSERT_STREQ(res->body.c_str(), fileContents.c_str());
+
+        server.close();
+        serverThread.join();
+    }
 }
 

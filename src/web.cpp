@@ -49,22 +49,49 @@ Web::RouteMethod Web::getMethod(const string &name) {
 }
 
 void Web::Webserver::setupPrerouting() {
+    this->server.set_mount_point("/", config.staticDirectory);
+    this->server.set_mount_point("/static", config.staticDirectory);
     this->server.set_pre_routing_handler([&](const auto& req, auto& res) {
-        res.status = 200;
+        res.status = 0;
         auto method = getMethod(req.method);
         RouteReference search { method, req.path };
+
         if (!this->resolvers.count(search)) {
-            cout << "not found" << endl;
-            res.status = 404;
-            res.set_content("Not found", "text/html");
-            return httplib::Server::HandlerResponse::Handled;
+            return httplib::Server::HandlerResponse::Unhandled;
         }
+
+        res.status = 200;
         auto routeIndex = this->resolvers.find(search);
         auto resolver = routeIndex->second;
         auto result = resolver->resolve(req);
         res.set_content(result.content, result.contentType);
 
         return httplib::Server::HandlerResponse::Handled;
+    });
+
+    this->server.set_error_handler([&](const auto& req, auto& res) {
+        // TODO:
+    });
+
+    this->server.set_post_routing_handler([](const auto& req, auto& res) {
+        if (res.status == 0) {
+            res.status = 404;
+            res.set_content("404 - not found", "text/plain");
+        }
+    });
+
+    this->server.set_exception_handler([](const auto& req, auto& res, std::exception_ptr ep) {
+        auto fmt = "<h1>Error 500</h1><p>%s</p>";
+        char buf[BUFSIZ];
+        try {
+            std::rethrow_exception(ep);
+        } catch (std::exception &e) {
+            snprintf(buf, sizeof(buf), fmt, e.what());
+        } catch (...) { // See the following NOTE
+            snprintf(buf, sizeof(buf), fmt, "Unknown Exception");
+        }
+        res.set_content(buf, "text/html");
+        res.status = 500;
     });
 }
 
