@@ -17,7 +17,16 @@ namespace {
                 { { RouteMethod::Get, "/" }, { "/", "../files/example.mustache", "../files/example.json" } }
         };
 
-        Webserver server({ 8080, "0.0.0.0", routes}, renderer);
+        ServerConfiguration conf {
+            8080,
+            "0.0.0.0",
+            "files",
+            "files/static",
+            "files/templates",
+            routes
+        };
+
+        Webserver server(conf, renderer);
 
         auto worker = [&](){
             server.listen();
@@ -39,6 +48,44 @@ namespace {
 
         server.close();
         serverThread.join();
+    }
+
+    TEST(Server, ConfigFromJson) {
+        const char TEST_CONFIG[] = R"json(
+        {
+            "port": 1337,
+            "files":  "files",
+            "static": "files/static",
+            "templates": "templates",
+            "routes": {
+                "get": {
+                    "/": {
+                        "template": "home.mustache",
+                        "data": "data/home.json"
+                    },
+                    "/foo": {
+                        "template": "foo.mustache",
+                        "data": "data/foo.json"
+                    }
+                },
+                "post": {
+                    "/": { "template": "foobar" }
+                }
+            }
+        }
+        )json";
+
+        auto conf = Web::getConfigurationFromJson(TEST_CONFIG);
+
+        ASSERT_EQ(conf.port, 1337);
+        ASSERT_STREQ(conf.host.c_str(), "0.0.0.0"); // default value
+        ASSERT_STREQ(conf.filesDirectory.c_str(), "files"); // default value
+        ASSERT_STREQ(conf.staticDirectory.c_str(), "files/static");
+        ASSERT_STREQ(conf.templatesDirectory.c_str(), "templates");
+
+        ASSERT_EQ(conf.routes.count({ Web::RouteMethod::Get, "/" }), 1);
+        ASSERT_EQ(conf.routes.count({ Web::RouteMethod::Get, "/foo" }), 1);
+        ASSERT_EQ(conf.routes.count({ Web::RouteMethod::Post, "/" }), 1);
     }
 }
 

@@ -11,6 +11,7 @@
 #include "file.h"
 #include "template.h"
 #include "httplib.h"
+#include "json.hpp"
 
 using namespace std;
 
@@ -40,13 +41,16 @@ namespace Web {
         }
 
         inline bool operator <(const RouteReference & b) const {
-            return b.path < path && b.method < method;
+            return make_pair(method, path) < make_pair(b.method, b.path);
         }
     };
 
     struct ServerConfiguration {
         int port;
         string host { "0.0.0.0" };
+        string filesDirectory { "files" };
+        string staticDirectory { "files/static" };
+        string templatesDirectory { "files/template" };
         map<RouteReference, Route> routes;
     };
 
@@ -85,6 +89,10 @@ namespace Web {
 
         void close();
     };
+
+    RouteMethod getMethod(const string & name);
+
+    ServerConfiguration getConfigurationFromJson(const string & jsonText);
 }
 
 #endif //WEB_RAPID_SERVER_H
