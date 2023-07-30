@@ -2,6 +2,7 @@
     "port": 1337,
     "files":  "files",
     "static": "files/static",
+    "staticMount": "/",
     "templates": "files/templates",
     "routes": {
         "get": {

@@ -22,6 +22,7 @@ namespace {
             "0.0.0.0",
             "files",
             "files/static",
+            "/",
             "files/templates",
             routes
         };
@@ -34,8 +35,7 @@ namespace {
 
         thread serverThread(worker);
 
-        while (!server.is_running())
-            std::this_thread::sleep_for(std::chrono::milliseconds{1});
+        server.wait_ready();
 
         httplib::Client client("localhost", 8080);
         auto res = client.Get("/");
@@ -56,6 +56,7 @@ namespace {
             "port": 1337,
             "files":  "files",
             "static": "files/static",
+            "staticMount": "/static",
             "templates": "templates",
             "routes": {
                 "get": {
@@ -100,6 +101,7 @@ namespace {
                 "0.0.0.0",
                 "../files",
                 "../files/static",
+                "/static",
                 "../files/templates",
                 routes
         };
@@ -112,12 +114,10 @@ namespace {
 
         thread serverThread(worker);
 
-        while (!server.is_running())
-            std::this_thread::sleep_for(std::chrono::milliseconds{1});
+        server.wait_ready();
 
         httplib::Client client("localhost", 8080);
-        auto res = client.Get("/test.png");
-        client.Get("/static/test.png");
+        auto res = client.Get("/static/test.png");
 
         auto fileContents = File::read("../files/static/test.png");
 
@@ -126,6 +126,63 @@ namespace {
         ASSERT_STREQ(res->body.c_str(), fileContents.c_str());
 
         server.close();
+        serverThread.join();
+    }
+
+    TEST(Server, ServiceResolve) {
+        httplib::Server service;
+
+        service.Get("/", [](const httplib::Request & req, httplib::Response & res){
+            res.status = 200;
+            res.set_content("Hello, from Service!", "text/plain");
+        });
+
+        auto serviceWorker = [&](){
+            service.listen("0.0.0.0", 1338);
+        };
+
+        thread serviceThread(serviceWorker);
+
+        service.wait_until_ready();
+
+        Template::TemplateRenderer renderer;
+
+        map<RouteReference, Route> routes = {
+                { { RouteMethod::Get, "/" }, { "/", "../files/example.mustache", "../files/example.json" } },
+                { { RouteMethod::Get, "/service" }, { "/", "", "", "http://127.0.0.1:1338" } }
+        };
+
+        ServerConfiguration conf {
+                8080,
+                "0.0.0.0",
+                "../files",
+                "../files/static",
+                "/static",
+                "../files/templates",
+                routes
+        };
+
+        Webserver server(conf, renderer);
+
+        auto worker = [&](){
+            server.listen();
+        };
+
+        thread serverThread(worker);
+
+        server.wait_ready();
+
+        httplib::Client client("localhost", 8080);
+        auto res = client.Get("/service");
+        cout << "Response!!!" << endl;
+
+        ASSERT_EQ(res->status, 200);
+
+        ASSERT_STREQ(res->body.c_str(), "Hello, from Service!");
+
+        server.close();
+        service.stop();
+        serviceThread.join();
         serverThread.join();
     }
 }

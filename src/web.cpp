@@ -1,6 +1,10 @@
 #include <cctype>
 #include "web.h"
 
+Web::ContentResponse Web::Resolver::resolve(const httplib::Request &req) {
+    return { "text/plain", "ok" };
+}
+
 Web::ContentResolver::ContentResolver(Template::TemplateRenderer &renderer, const string &templateName,
                                       mustache::data &data) :
         renderer(renderer), templateName(templateName), data(data) {
@@ -15,10 +19,16 @@ Web::ContentResponse Web::ContentResolver::resolve(const httplib::Request &req) 
 
 Web::Webserver::Webserver(const Web::ServerConfiguration &conf, Template::TemplateRenderer &renderer) : config(conf) {
     for(auto & [ref, route] : this->config.routes) {
-        string templateName = renderer.addTemplateFile(route.templatePath);
-        string jsonFileData = File::read(route.dataPath);
-        auto data = Template::dataFromJson(jsonFileData);
-        auto resolver = make_shared<ContentResolver>(renderer, templateName, data);
+        shared_ptr<Resolver> resolver;
+        if (!route.remoteUrl.empty()) {
+            cout << "Service resolver " << route.remoteUrl << " : " << route.path << endl;
+            resolver = make_shared<ServiceResolver>(route.remoteUrl);
+        } else {
+            string templateName = renderer.addTemplateFile(route.templatePath);
+            string jsonFileData = File::read(route.dataPath);
+            auto data = Template::dataFromJson(jsonFileData);
+            resolver = make_shared<ContentResolver>(renderer, templateName, data);
+        }
         resolvers.insert({ ref, resolver });
     }
     setupPrerouting();
@@ -49,9 +59,11 @@ Web::RouteMethod Web::getMethod(const string &name) {
 }
 
 void Web::Webserver::setupPrerouting() {
-    this->server.set_mount_point("/", config.staticDirectory);
-    this->server.set_mount_point("/static", config.staticDirectory);
+    cout << "setup prerouting" << endl;
+    this->server.set_mount_point(config.staticMount, config.staticDirectory);
+
     this->server.set_pre_routing_handler([&](const auto& req, auto& res) {
+        cout << "Resolve route " << req.path << endl;
         res.status = 0;
         auto method = getMethod(req.method);
         RouteReference search { method, req.path };
@@ -60,10 +72,10 @@ void Web::Webserver::setupPrerouting() {
             return httplib::Server::HandlerResponse::Unhandled;
         }
 
-        res.status = 200;
         auto routeIndex = this->resolvers.find(search);
         auto resolver = routeIndex->second;
         auto result = resolver->resolve(req);
+        res.status = result.status;
         res.set_content(result.content, result.contentType);
 
         return httplib::Server::HandlerResponse::Handled;
@@ -71,6 +83,7 @@ void Web::Webserver::setupPrerouting() {
 
     this->server.set_error_handler([&](const auto& req, auto& res) {
         // TODO:
+        cout << "Error handler called" << endl;
     });
 
     this->server.set_post_routing_handler([](const auto& req, auto& res) {
@@ -93,6 +106,7 @@ void Web::Webserver::setupPrerouting() {
         res.set_content(buf, "text/html");
         res.status = 500;
     });
+    cout << "OK\n";
 }
 
 void Web::Webserver::listen() {
@@ -107,11 +121,16 @@ void Web::Webserver::close() {
     this->server.stop();
 }
 
+void Web::Webserver::wait_ready() {
+    this->server.wait_until_ready();
+}
+
 Web::ServerConfiguration Web::getConfigurationFromJson(const string &jsonText) {
     int port = 80;
     string host = "0.0.0.0";
     string filesDir = "files";
     string staticDir = "files/static";
+    string staticMount = "/";
     string templatesDir = "files/templates";
     map<RouteReference, Route> routes;
 
@@ -125,6 +144,7 @@ Web::ServerConfiguration Web::getConfigurationFromJson(const string &jsonText) {
     if (doc["host"].is_string()) host = doc["host"].get<string>();
     if (doc["files"].is_string()) filesDir = doc["files"].get<string>();
     if (doc["static"].is_string()) staticDir = doc["static"].get<string>();
+    if (doc["staticMount"].is_string()) staticMount = doc["staticMount"].get<string>();
     if (doc["templates"].is_string()) templatesDir = doc["templates"].get<string>();
 
     if (doc["routes"].is_object()) {
@@ -142,6 +162,7 @@ Web::ServerConfiguration Web::getConfigurationFromJson(const string &jsonText) {
                 Route result {routePath };
                 if (routeObject.contains("template")) result.templatePath = routeObject["template"].get<string>();
                 if (routeObject.contains("data")) result.dataPath = routeObject["data"].get<string>();
+                if (routeObject.contains("service")) result.remoteUrl = routeObject["service"].get<string>();
 
                 routes.insert(pair(ref, result));
             }
@@ -153,7 +174,29 @@ Web::ServerConfiguration Web::getConfigurationFromJson(const string &jsonText) {
             host,
             filesDir,
             staticDir,
+            staticMount,
             templatesDir,
             routes
     };
+}
+
+Web::ServiceResolver::ServiceResolver(const string &url, const string & path) : serviceUrl(url), remotePath(path) {}
+
+Web::ContentResponse Web::ServiceResolver::resolve(const httplib::Request &req) {
+    httplib::Request remoteReq(req);
+    remoteReq.path = this->remotePath;
+    remoteReq.body = req.body;
+    remoteReq.method = req.method;
+    remoteReq.params = req.params;
+    remoteReq.headers = req.headers;
+    httplib::Client client(this->serviceUrl);
+
+    if (!client.is_valid()) {
+        throw runtime_error("Invalid service");
+    }
+
+    cout << "calling service: " << this->serviceUrl << endl;
+    auto response = client.send(remoteReq);
+    cout << "service ok " << response->body << endl;
+    return { response->get_header_value("Content-Type"), response->body, response->status };
 }

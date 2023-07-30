@@ -21,6 +21,7 @@ namespace Web {
         string path;
         string templatePath;
         string dataPath;
+        string remoteUrl; ///< if set, route will be handled as service resolver
     };
 
     enum class RouteMethod {
@@ -50,6 +51,7 @@ namespace Web {
         string host { "0.0.0.0" };
         string filesDirectory { "files" };
         string staticDirectory { "files/static" };
+        string staticMount { "/" };
         string templatesDirectory { "files/template" };
         map<RouteReference, Route> routes;
     };
@@ -57,9 +59,15 @@ namespace Web {
     struct ContentResponse {
         string contentType { "text/html" };
         string content;
+        int status { 200 };
     };
 
-    class ContentResolver {
+    class Resolver {
+    public:
+        virtual ContentResponse resolve(const httplib::Request & req);
+    };
+
+    class ContentResolver : public Resolver {
     private:
         Template::TemplateRenderer & renderer;
         string templateName;
@@ -67,14 +75,24 @@ namespace Web {
     public:
         ContentResolver(Template::TemplateRenderer & renderer, const string & templateName, mustache::data & data);;
 
-        ContentResponse resolve(const httplib::Request & req);
+        ContentResponse resolve(const httplib::Request & req) override;
+    };
+
+    class ServiceResolver : public Resolver {
+    private:
+        string serviceUrl;
+        string remotePath;
+    public:
+        explicit ServiceResolver(const string & url, const string & path = "/");
+
+        ContentResponse resolve(const httplib::Request & req) override;
     };
 
     class Webserver {
     private:
         httplib::Server server;
         ServerConfiguration config;
-        map<RouteReference, shared_ptr<ContentResolver>> resolvers;
+        map<RouteReference, shared_ptr<Resolver>> resolvers;
     protected:
         void setupRoutes();
 
@@ -88,6 +106,8 @@ namespace Web {
         bool is_running();
 
         void close();
+
+        void wait_ready();
     };
 
     RouteMethod getMethod(const string & name);
