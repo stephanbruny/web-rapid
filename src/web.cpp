@@ -21,7 +21,6 @@ Web::Webserver::Webserver(const Web::ServerConfiguration &conf, Template::Templa
     for(auto & [ref, route] : this->config.routes) {
         shared_ptr<Resolver> resolver;
         if (!route.remoteUrl.empty()) {
-            cout << "Service resolver " << route.remoteUrl << " : " << route.path << endl;
             resolver = make_shared<ServiceResolver>(route.remoteUrl);
         } else {
             string templateName = renderer.addTemplateFile(route.templatePath);
@@ -59,11 +58,9 @@ Web::RouteMethod Web::getMethod(const string &name) {
 }
 
 void Web::Webserver::setupPrerouting() {
-    cout << "setup prerouting" << endl;
     this->server.set_mount_point(config.staticMount, config.staticDirectory);
 
     this->server.set_pre_routing_handler([&](const auto& req, auto& res) {
-        cout << "Resolve route " << req.path << endl;
         res.status = 0;
         auto method = getMethod(req.method);
         RouteReference search { method, req.path };
@@ -106,7 +103,10 @@ void Web::Webserver::setupPrerouting() {
         res.set_content(buf, "text/html");
         res.status = 500;
     });
-    cout << "OK\n";
+
+    this->server.set_logger([](const auto& req, const auto& res) {
+        // cout << req.path << " : " << res.status << endl;
+    });
 }
 
 void Web::Webserver::listen() {
@@ -180,7 +180,12 @@ Web::ServerConfiguration Web::getConfigurationFromJson(const string &jsonText) {
     };
 }
 
-Web::ServiceResolver::ServiceResolver(const string &url, const string & path) : serviceUrl(url), remotePath(path) {}
+Web::ServiceResolver::ServiceResolver(const string &url, const string & path) :
+    serviceUrl(url), remotePath(path), client(url) {
+    if (!client.is_valid()) {
+        throw runtime_error("Invalid service");
+    }
+}
 
 Web::ContentResponse Web::ServiceResolver::resolve(const httplib::Request &req) {
     httplib::Request remoteReq(req);
@@ -189,14 +194,11 @@ Web::ContentResponse Web::ServiceResolver::resolve(const httplib::Request &req) 
     remoteReq.method = req.method;
     remoteReq.params = req.params;
     remoteReq.headers = req.headers;
-    httplib::Client client(this->serviceUrl);
 
     if (!client.is_valid()) {
         throw runtime_error("Invalid service");
     }
 
-    cout << "calling service: " << this->serviceUrl << endl;
     auto response = client.send(remoteReq);
-    cout << "service ok " << response->body << endl;
     return { response->get_header_value("Content-Type"), response->body, response->status };
 }

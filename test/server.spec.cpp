@@ -174,7 +174,6 @@ namespace {
 
         httplib::Client client("localhost", 8080);
         auto res = client.Get("/service");
-        cout << "Response!!!" << endl;
 
         ASSERT_EQ(res->status, 200);
 

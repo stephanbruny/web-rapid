@@ -82,6 +82,7 @@ namespace Web {
     private:
         string serviceUrl;
         string remotePath;
+        httplib::Client client;
     public:
         explicit ServiceResolver(const string & url, const string & path = "/");
 
