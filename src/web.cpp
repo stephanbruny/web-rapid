@@ -22,6 +22,9 @@ Web::Webserver::Webserver(const Web::ServerConfiguration &conf, Template::Templa
         shared_ptr<Resolver> resolver;
         if (!route.remoteUrl.empty()) {
             resolver = make_shared<ServiceResolver>(route.remoteUrl);
+        } else if (!route.remoteDataUrl.empty()) {
+            string templateName = renderer.addTemplateFile(route.templatePath);
+            resolver = make_shared<ContentServiceResolver>(renderer, templateName, route.remoteDataUrl);
         } else {
             string templateName = renderer.addTemplateFile(route.templatePath);
             string jsonFileData = File::read(route.dataPath);
@@ -201,4 +204,19 @@ Web::ContentResponse Web::ServiceResolver::resolve(const httplib::Request &req) 
 
     auto response = client.send(remoteReq);
     return { response->get_header_value("Content-Type"), response->body, response->status };
+}
+
+Web::ContentServiceResolver::ContentServiceResolver(
+        Template::TemplateRenderer &renderer,
+        const string &templateName,
+        const string &dataUrl):
+            renderer(renderer), templateName(templateName), dataUrl(dataUrl), serviceResolver(dataUrl) {
+}
+
+Web::ContentResponse Web::ContentServiceResolver::resolve(const httplib::Request &req) {
+    auto serviceResponse = this->serviceResolver.resolve(req);
+    auto data = Template::dataFromJson(serviceResponse.content);
+    string result = renderer.render(this->templateName, data);
+    // TODO: Caching?
+    return { "text/html", result };
 }

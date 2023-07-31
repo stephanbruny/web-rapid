@@ -3,6 +3,10 @@
 
 void Template::TemplateRenderer::addTemplate(const string &name, const string &content) {
     mustache::mustache tmpl(content);
+    if (!tmpl.is_valid()) {
+        string msg = "Invalid mustache template " + name + ": " + tmpl.error_message();
+        throw runtime_error(msg);
+    }
     this->cache.insert(std::pair<std::string, mustache::mustache>(name, tmpl));
 }
 

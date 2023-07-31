@@ -22,6 +22,7 @@ namespace Web {
         string templatePath;
         string dataPath;
         string remoteUrl; ///< if set, route will be handled as service resolver
+        string remoteDataUrl; ///< if set the data will be received from external source
     };
 
     enum class RouteMethod {
@@ -85,6 +86,18 @@ namespace Web {
         httplib::Client client;
     public:
         explicit ServiceResolver(const string & url, const string & path = "/");
+
+        ContentResponse resolve(const httplib::Request & req) override;
+    };
+
+    class ContentServiceResolver : public Resolver {
+    private:
+        Template::TemplateRenderer & renderer;
+        string templateName;
+        string dataUrl;
+        ServiceResolver serviceResolver;
+    public:
+        ContentServiceResolver(Template::TemplateRenderer & renderer, const string & templateName, const string & dataUrl);
 
         ContentResponse resolve(const httplib::Request & req) override;
     };

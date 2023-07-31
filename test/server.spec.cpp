@@ -184,5 +184,44 @@ namespace {
         serviceThread.join();
         serverThread.join();
     }
+
+    TEST(Server, ContentServiceResolve) {
+        httplib::Server service;
+
+        const char TEST_JSON[] = R"json(
+        { "foo": "foobar", "bar": 42, "list": [ 1, 2, 3, 1337 ] }
+        )json";
+
+        const char TEST_TEMPLATE[] = R"tmpl(Foo: {{foo}}, Bar: {{bar}}, List: {{#list}}[{{.}}]{{/list}})tmpl";
+
+        service.Get("/", [&](const httplib::Request & req, httplib::Response & res){
+            res.status = 200;
+            res.set_content(TEST_JSON, "application/json");
+        });
+
+        auto serviceWorker = [&](){
+            service.listen("0.0.0.0", 1338);
+        };
+
+        thread serviceThread(serviceWorker);
+
+        service.wait_until_ready();
+
+        Template::TemplateRenderer renderer;
+
+        renderer.addTemplate("test", TEST_TEMPLATE);
+
+        Web::ContentServiceResolver resolver(renderer, "test", "http://127.0.0.1:1338");
+
+        httplib::Request req;
+        req.method = "GET";
+
+        auto res = resolver.resolve(req);
+
+        ASSERT_STREQ(res.content.c_str(), "Foo: foobar, Bar: 42, List: [1][2][3][1337]");
+
+        service.stop();
+        serviceThread.join();
+    }
 }
 
